@@ -9,18 +9,18 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id       String @id
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
   email    String @unique
   password String
 }
 
 model customAPI {
-  id       String @id @default(uuid())
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
   code     String @unique
   api_name String
 }
