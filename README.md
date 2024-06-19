@@ -35,6 +35,9 @@ $ npm install
 ## Running the app
 
 ```bash
+# Docker
+$ docker compose up -d mongo
+
 # development
 $ npm run start
 
