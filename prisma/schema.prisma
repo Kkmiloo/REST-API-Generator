@@ -14,13 +14,25 @@ datasource db {
 }
 
 model User {
-  id       String @id @default(auto()) @map("_id") @db.ObjectId
-  email    String @unique
-  password String
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  email       String     @unique
+  name        String
+  customAPI   CustomAPI? @relation(fields: [customAPIId], references: [id])
+  customAPIId String?    @db.ObjectId
 }
 
-model customAPI {
-  id       String @id @default(auto()) @map("_id") @db.ObjectId
-  code     String @unique
-  api_name String
+model CustomAPI {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  code String @unique
+
+  records DataRecord[]
+  User    User[]
+}
+
+model DataRecord {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  data        Json
+  api_name    String
+  customAPI   CustomAPI @relation(fields: [customAPIId], references: [id])
+  customAPIId String    @db.ObjectId
 }
