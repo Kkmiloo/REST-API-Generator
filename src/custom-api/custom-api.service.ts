@@ -1,12 +1,20 @@
-import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { GenerateApiDto } from './dto/generate-api.dto';
 import { readFileSync, writeFileSync } from 'fs';
 import { WriteFile } from 'src/common/interfaces/writeFile.interface';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { PaginationResponseDto } from 'src/common/dto/paginationResponse.dto';
+import { RecordDataInterface } from './interfaces/recordData.interface';
 
 @Injectable()
 export class CustomApiService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(CustomApiService.name);
   async onModuleInit() {
     await this.$connect();
   }
@@ -15,20 +23,24 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
     const { api_name, data } = generateApiDto;
     //Get a unique code
     const code = await this.generateUniqueShortCode();
-    //transform the data into an JSON
-    const dataJson = JSON.stringify({ [api_name]: data });
-    //Saving the data in local
-    this.writeFile({ code, data: dataJson });
 
     try {
       const api = await this.customAPI.create({
         data: {
-          api_name: api_name,
           code,
+          records: {
+            create: {
+              api_name: api_name,
+              data: data,
+            },
+          },
         },
       });
-      return { api };
+
+      return { ...api, api_name };
     } catch (error) {
+      this.logger.log(error);
+
       throw new BadRequestException(
         'Failed to create API. Please try again later.',
       );
@@ -39,60 +51,71 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
     code: string,
     api_name: string,
     paginationDto: PaginationDto,
-  ) {
+  ): Promise<PaginationResponseDto> {
     const { limit, page } = paginationDto;
 
-    const existingUrl = await this.customAPI.findUnique({
+    const customAPI = await this.customAPI.findUnique({
       where: {
         code: code,
       },
+      include: {
+        records: true,
+      },
     });
 
-    if (!existingUrl) throw new BadRequestException('Code not found');
+    if (!customAPI) throw new BadRequestException('Code not found');
 
-    const data = JSON.parse(
-      readFileSync(`data/${code}.json`, { encoding: 'utf-8' }),
-    );
+    const data = customAPI.records.find(
+      (record) => record.api_name === api_name,
+    ).data as Prisma.JsonArray;
 
-    if (!data[api_name]) throw new BadRequestException('API not found');
+    if (!data) throw new BadRequestException('API not found');
 
     if (limit && page) {
-      const totalEntries = data[api_name].length;
-      const totalPages = Math.ceil(data[api_name].length / limit);
-      const lastPage = totalPages;
+      const count = data.length;
+      const totalPages = Math.ceil(count / limit);
 
+      console.log(Object.entries(data));
       return {
-        data: data[api_name].slice(page * limit - limit, page * limit),
+        result: data.slice(page * limit - limit, page * limit),
         metadata: {
-          totalEntries,
+          count,
           perPage: limit,
           currentPage: page,
-          lastPage,
-          nextPage: page < lastPage ? `?page=${page + 1}&limit=${limit}` : null,
-          prevPage: page > 1 ? `?page=${page + 1}&limit=${limit}` : null,
+          nextPage:
+            page < totalPages ? `?page=${page + 1}&limit=${limit}` : null,
+          prevPage:
+            page > 1 && page <= totalPages
+              ? `?page=${page - 1}&limit=${limit}`
+              : null,
         },
       };
     }
 
-    return data[api_name];
+    return { result: data };
   }
 
   async getDataById(code: string, api_name: string, id: string) {
-    const existingUrl = await this.customAPI.findUnique({
+    const customAPI = await this.customAPI.findUnique({
       where: {
         code: code,
       },
+      include: {
+        records: true,
+      },
     });
 
-    if (!existingUrl) throw new BadRequestException('Code not found');
+    if (!customAPI) throw new BadRequestException('Code not found');
 
-    const data = JSON.parse(
-      readFileSync(`data/${code}.json`, { encoding: 'utf-8' }),
-    );
+    const data = customAPI.records.find(
+      (record) => record.api_name === api_name,
+    ).data;
 
-    console.log(data);
+    const parsedData = JSON.parse(
+      JSON.stringify(data),
+    ) as RecordDataInterface[];
 
-    const result = data[api_name].find((item) => item.id === +id);
+    const result = parsedData.find((item) => item.id == +id);
 
     if (!result) throw new BadRequestException(`Data with id: ${id} not found`);
 
