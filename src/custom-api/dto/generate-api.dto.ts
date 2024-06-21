@@ -1,9 +1,11 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsArray, IsString } from 'class-validator';
+import { RecordData } from './recordData.dto';
 
 export class GenerateApiDto {
   @IsArray()
-  data: any;
+  @Type(() => RecordData)
+  data: RecordData[];
 
   @IsString()
   @Transform(({ value }) => value.toLowerCase())

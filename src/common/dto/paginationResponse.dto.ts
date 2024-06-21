@@ -1,5 +1,7 @@
+import { RecordDataInterface } from 'src/custom-api/interfaces/recordData.interface';
+
 export class PaginationResponseDto {
-  result: any[];
+  result: RecordDataInterface[];
   metadata?: PaginationMetadata;
 }
 
