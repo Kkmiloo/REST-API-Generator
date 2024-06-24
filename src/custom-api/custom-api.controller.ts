@@ -6,13 +6,14 @@ import {
   Param,
   Query,
   ParseIntPipe,
-  ValidationPipe,
-  UsePipes,
+  Put,
 } from '@nestjs/common';
 import { CustomApiService } from './custom-api.service';
 import { GenerateApiDto } from './dto/generate-api.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { RecordData } from './dto/recordData.dto';
+
+import { AnyValidBody } from 'src/common/decorators/any-valid-body.decorator';
 
 @Controller('')
 export class CustomApiController {
@@ -42,19 +43,25 @@ export class CustomApiController {
   }
 
   @Post(':code/:api_name')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: false,
-      forbidUnknownValues: false,
-    }),
-  )
   createData(
     @Param('code') code: string,
     @Param('api_name') api_name: string,
-    @Body()
+    @AnyValidBody()
+    data: any,
+  ) {
+    console.log(data);
+    console.log(typeof data);
+    return this.customApiService.createData(code, api_name, data);
+  }
+
+  @Put(':code/:api_name/:id')
+  updateData(
+    @Param('code') code: string,
+    @Param('api_name') api_name: string,
+    @Param('id', ParseIntPipe) id: number,
+    @AnyValidBody()
     data: RecordData,
   ) {
-    return this.customApiService.createData(code, api_name, data);
+    return this.customApiService.updateData(code, api_name, id, data);
   }
 }
