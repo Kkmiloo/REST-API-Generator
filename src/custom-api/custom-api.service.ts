@@ -4,7 +4,7 @@ import {
   Logger,
   OnModuleInit,
 } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { GenerateApiDto } from './dto/generate-api.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponseDto } from 'src/common/dto/paginationResponse.dto';
@@ -23,12 +23,12 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
       //Get a unique code
       const code = await this.generateUniqueShortCode();
 
-      const api = await this.customAPI.create({
+      const api = await this.api.create({
         data: {
           code,
-          records: {
+          name: api_name,
+          apiData: {
             create: {
-              api_name: api_name,
               data: data,
             },
           },
@@ -38,7 +38,6 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
       return { ...api, api_name };
     } catch (error) {
       this.logger.log(error);
-
       throw new BadRequestException(
         'Failed to create API. Please try again later.',
       );
@@ -50,26 +49,22 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
     api_name: string,
     paginationDto?: PaginationDto,
   ): Promise<PaginationResponseDto> {
-    const customAPI = await this.customAPI.findUnique({
+    const customAPI = await this.api.findUnique({
       where: {
         code: code,
       },
       include: {
-        records: true,
+        apiData: true,
       },
     });
 
     if (!customAPI) throw new BadRequestException('Code not found');
 
-    const recordData = customAPI.records.find(
-      (record) => record.api_name == api_name,
-    );
+    const apiData = customAPI.apiData;
 
-    if (!recordData) throw new BadRequestException('API not found');
+    if (!apiData) throw new BadRequestException('API not found');
 
-    const data = JSON.parse(
-      JSON.stringify(recordData.data),
-    ) as RecordDataInterface[];
+    const data = apiData[0].data as RecordDataInterface[];
 
     if (paginationDto && paginationDto.limit && paginationDto.page) {
       const { page = 1, limit = 10 } = paginationDto;
@@ -98,11 +93,7 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
   async getDataById(code: string, api_name: string, id: number) {
     const recordData = await this.getAllData(code, api_name);
 
-    console.log(recordData);
-
-    const parsedData = JSON.parse(
-      JSON.stringify(recordData.result),
-    ) as RecordDataInterface[];
+    const parsedData = recordData.result as RecordDataInterface[];
 
     const result = parsedData.find((item) => item.id == id);
 
@@ -111,46 +102,91 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
     return result;
   }
 
-  async createData(code: string, api_name: string, data: RecordDataInterface) {
-    const customAPI = await this.customAPI.findUnique({
+  async createData(code: string, api_name: string, data: any) {
+    const customAPI = await this.api.findUnique({
       where: {
         code: code,
+        name: api_name,
       },
       include: {
-        records: true,
+        apiData: true,
       },
     });
 
     if (!customAPI) throw new BadRequestException('Code not found');
 
-    const recordData = customAPI.records.find(
-      (record) => record.api_name == api_name,
-    );
+    const apiData = customAPI.apiData[0];
 
-    if (!recordData) throw new BadRequestException('API not found');
+    if (!apiData) throw new BadRequestException('API not found');
 
-    const parsedData = JSON.parse(
-      JSON.stringify(recordData.data),
-    ) as RecordDataInterface[];
+    const oldData = apiData.data as RecordDataInterface[];
 
-    if (parsedData.find((item) => item.id == data.id)) {
-      throw new BadRequestException(`Data with id ${data.id} already exists`);
+    console.log(typeof oldData);
+    console.log(oldData);
+
+    console.log(typeof []);
+
+    if (data.id) {
+      const existData = oldData.find((item) => data.id && item.id == data.id);
+
+      if (existData)
+        throw new BadRequestException(
+          `Data with id: ${data.id} already exists`,
+        );
     }
 
-    parsedData.push(data);
+    const sortedData = oldData.sort((a, b) => a.id - b.id)[oldData.length - 1];
+    data.id = sortedData.id + 1;
+    const newData = [...oldData, data];
+
     try {
-      await this.dataRecord.update({
+      await this.apiData.update({
         where: {
-          id: recordData.id,
+          id: apiData.id,
         },
         data: {
-          data: parsedData,
+          data: newData,
         },
       });
 
+      return newData;
+    } catch (error) {
+      this.logger.error(error);
+      throw new BadRequestException(
+        'Failed to create data. Please try again later.',
+      );
+    }
+  }
+
+  async updateData(
+    code: string,
+    api_name: string,
+    id: number,
+    data: RecordDataInterface,
+  ) {
+    const recordData = [];
+
+    const parsedData = JSON.parse(
+      JSON.stringify(recordData),
+    ) as RecordDataInterface[];
+
+    const index = parsedData.findIndex((item) => item.id == id);
+
+    console.log(data);
+    console.log(index);
+
+    if (index == -1)
+      throw new BadRequestException(`Data with id ${id} not found`);
+
+    parsedData[index] = data;
+
+    try {
       return data;
     } catch (error) {
       console.log(error);
+      throw new BadRequestException(
+        'Failed to update data. Please try again later.',
+      );
     }
   }
 
@@ -175,7 +211,7 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
     while (!isUnique) {
       code = this.generateRandomString();
 
-      const existingUrl = await this.customAPI.findUnique({
+      const existingUrl = await this.api.findUnique({
         where: {
           code: code,
         },
