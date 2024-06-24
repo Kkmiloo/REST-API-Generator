@@ -60,8 +60,9 @@ export class CustomApiController {
     @Param('api_name') api_name: string,
     @Param('id', ParseIntPipe) id: number,
     @AnyValidBody()
-    data: RecordData,
+    data: any,
   ) {
+    if (data.id) delete data.id;
     return this.customApiService.updateData(code, api_name, id, data);
   }
 }
