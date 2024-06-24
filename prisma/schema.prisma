@@ -14,25 +14,38 @@ datasource db {
 }
 
 model User {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  email       String     @unique
-  name        String
-  customAPI   CustomAPI? @relation(fields: [customAPIId], references: [id])
-  customAPIId String?    @db.ObjectId
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+  email String  @unique
+  name  String
+  api   Api?    @relation(fields: [apiId], references: [id])
+  apiId String? @db.ObjectId
 }
 
-model CustomAPI {
-  id   String @id @default(auto()) @map("_id") @db.ObjectId
-  code String @unique
-
-  records DataRecord[]
+model Api {
+  id      String      @id @default(auto()) @map("_id") @db.ObjectId
+  code    String      @unique
+  name    String
   User    User[]
+  apiData ApiData[]
+  columns ApiColumn[]
 }
 
-model DataRecord {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  data        Json
-  api_name    String
-  customAPI   CustomAPI @relation(fields: [customAPIId], references: [id])
-  customAPIId String    @db.ObjectId
+model ApiData {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  apiId String @db.ObjectId
+
+  data      Json
+  createdAt DateTime @default(now())
+
+  api Api @relation(fields: [apiId], references: [id])
+}
+
+model ApiColumn {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  apiId String @db.ObjectId
+
+  name String
+  type String
+
+  Api Api @relation(fields: [apiId], references: [id])
 }
