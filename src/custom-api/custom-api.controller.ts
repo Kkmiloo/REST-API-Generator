@@ -7,6 +7,8 @@ import {
   Query,
   ParseIntPipe,
   Put,
+  Patch,
+  Delete,
 } from '@nestjs/common';
 import { CustomApiService } from './custom-api.service';
 import { GenerateApiDto } from './dto/generate-api.dto';
@@ -55,6 +57,18 @@ export class CustomApiController {
   }
 
   @Put(':code/:api_name/:id')
+  updateAllData(
+    @Param('code') code: string,
+    @Param('api_name') api_name: string,
+    @Param('id', ParseIntPipe) id: number,
+    @AnyValidBody()
+    data: any,
+  ) {
+    if (data.id) delete data.id;
+    return this.customApiService.updateAllData(code, api_name, id, data);
+  }
+
+  @Patch(':code/:api_name/:id')
   updateData(
     @Param('code') code: string,
     @Param('api_name') api_name: string,
@@ -64,5 +78,14 @@ export class CustomApiController {
   ) {
     if (data.id) delete data.id;
     return this.customApiService.updateData(code, api_name, id, data);
+  }
+
+  @Delete(':code/:api_name/:id')
+  deleteData(
+    @Param('code') code: string,
+    @Param('api_name') api_name: string,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.customApiService.deleteData(code, api_name, id);
   }
 }

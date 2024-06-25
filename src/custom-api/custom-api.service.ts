@@ -4,7 +4,7 @@ import {
   Logger,
   OnModuleInit,
 } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { GenerateApiDto } from './dto/generate-api.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginationResponseDto } from 'src/common/dto/paginationResponse.dto';
@@ -153,7 +153,7 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
     }
   }
 
-  async updateData(
+  async updateAllData(
     code: string,
     api_name: string,
     id: number,
@@ -192,6 +192,103 @@ export class CustomApiService extends PrismaClient implements OnModuleInit {
         },
         data: {
           data: recordData,
+        },
+      });
+
+      return updatedData.data[index];
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException(
+        'Failed to update data. Please try again later.',
+      );
+    }
+  }
+
+  async updateData(
+    code: string,
+    api_name: string,
+    id: number,
+    data: RecordDataInterface,
+  ) {
+    const api = await this.api.findUnique({
+      where: {
+        code: code,
+        name: api_name,
+      },
+      include: {
+        apiData: true,
+      },
+    });
+
+    if (!api) throw new BadRequestException('Code or api name not found');
+
+    const recordData = api.apiData[0].data as RecordDataInterface[];
+
+    const dataExists = recordData.find((item) => item.id == id);
+
+    if (!dataExists)
+      throw new BadRequestException(`Data with id ${id} not found`);
+
+    const index = recordData.findIndex((item) => item.id == id);
+
+    if (index == -1)
+      throw new BadRequestException(`Data with id ${id} not found`);
+
+    recordData[index] = { ...recordData[index], ...data };
+
+    try {
+      const updatedData = await this.apiData.update({
+        where: {
+          id: api.apiData[0].id,
+        },
+        data: {
+          data: recordData,
+        },
+      });
+
+      return updatedData.data[index];
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException(
+        'Failed to update data. Please try again later.',
+      );
+    }
+  }
+
+  async deleteData(code: string, api_name: string, id: number) {
+    const api = await this.api.findUnique({
+      where: {
+        code: code,
+        name: api_name,
+      },
+      include: {
+        apiData: true,
+      },
+    });
+
+    if (!api) throw new BadRequestException('Code or api name not found');
+
+    const recordData = api.apiData[0].data as RecordDataInterface[];
+
+    const dataExists = recordData.find((item) => item.id == id);
+
+    if (!dataExists)
+      throw new BadRequestException(`Data with id ${id} not found`);
+
+    const index = recordData.findIndex((item) => item.id == id);
+
+    if (index == -1)
+      throw new BadRequestException(`Data with id ${id} not found`);
+
+    const data = recordData.filter((item) => item.id != id);
+
+    try {
+      const updatedData = await this.apiData.update({
+        where: {
+          id: api.apiData[0].id,
+        },
+        data: {
+          data: data,
         },
       });
 
